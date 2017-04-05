@@ -37,10 +37,6 @@ iterate({ utils::IterateDirection::Reverse(), [](int i) {
 	std::cout << i;
 } });
 
-iterate(utils::IterateDirection::Reverse() | [](int i) {
-	std::cout << i;
-} );
-
 */
 
 
