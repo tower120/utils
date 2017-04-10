@@ -3,12 +3,12 @@
 #include <functional>
 #include <utility>
 
+
+#include "RangeApplicatorBase.h"
+
+#include "Applied.h"
 #include "match.h"
-
-#include <range/v3/core.hpp>
-#include <range/v3/view/reverse.hpp>
-
-
+#include "lambda_args.h"
 
 /*
 
@@ -34,109 +34,94 @@ iterate([](int i){
 	std::cout << i; 
 });
 iterate({ utils::IterateDirection::Reverse(), [](int i) {
+    if (i > 2) return utils::FlowControl::Break;
 	std::cout << i;
-} });
+    return utils::FlowControl::Continue;
+}});
 
 */
 
 
 namespace utils {
 
-	template<class>
-	class RangeApplicator;
-
 	namespace IterateDirection {
-		struct Forward {};
-		struct Reverse {};
+		struct Forward {} forward;
+		struct Reverse {} reverse;
 	}
 
 	template<class T>
-	class RangeApplicator {
-		using Self = RangeApplicator<T>;
-
-		const std::function<void(T)> fn;
+	class RangeApplicator : public RangeApplicatorBase<T>
+						  , public AppliedMaker {
+        using Base = RangeApplicatorBase<T>;
+        using Self = RangeApplicator<T>;
 		const bool reverse = false;
 
+        using Base::fn;
+        using Base::iterate;
 	public:
-		class Applied {
-			friend class RangeApplicator<T>;
-			Applied() {}
-
-		public:
-			Applied(const Applied&) = delete;
-			Applied(Applied&&) = default;
-		};
-
 
 		template<class Fn, class = std::enable_if_t< !std::is_same< std::decay_t<Fn>,  Self>::value > >
 		RangeApplicator(Fn&& fn)
-			:fn(std::forward<Fn>(fn)) {}
+			:Base(std::forward<Fn>(fn)) {}
 
 		template<class Fn>
 		RangeApplicator(IterateDirection::Reverse, Fn&& fn)
-			: fn(std::forward<Fn>(fn))
+			: Base(std::forward<Fn>(fn))
 			, reverse(true) {}
 
 		template<class Fn>
 		RangeApplicator(IterateDirection::Forward, Fn&& fn)
-			: fn(std::forward<Fn>(fn))
+			: Base(std::forward<Fn>(fn))
 			, reverse(false) {}
-
 
 
 		template<class Range, class RangeRev>
 		Applied apply_range(Range&& range, RangeRev&& renge_rev) const {
 			if (!reverse) {
-				for (auto&& element : range) {
-					fn(element);
-				}
-			}
-			else {
-				for (auto&& element : renge_rev) {
-					fn(element);
-				}
+                iterate(std::forward<Range>(range));
+			} else {
+                iterate(std::forward<RangeRev>(renge_rev));
 			}
 
-			return{};
+			return makeApplied();
 		}
 
 		template<class Range>
 		Applied apply_range(Range&& range) const {
-			using namespace ranges;
-
 			if (!reverse) {
-				for (auto&& element : range) {
-					fn(element);
-				}
+                iterate(std::forward<Range>(range));
 			}
 			else {
-				for (auto&& element : view::reverse(range)) {
-					fn(element);
+
+				auto i = range.end();
+				const auto begin = range.begin();
+				while (i != begin)
+				{
+					--i;
+                    /*fn(*i);*/
+
+                    const auto r = fn(*i);
+                    if (r == FlowControl::Break){
+                        break;
+                    }
 				}
 			}
 
-			return {};
+			return makeApplied();
 		}
 
 
 		template<class ...Fns>
 		Applied apply_match(Fns&&... fns) const {
 			if (!reverse) {
-				for (auto&& element : utils::match(IterateDirection::Forward{}, std::forward<Fns>(fns)...)) {
-					fn(element);
-				}
-			}
-			else {
-				for (auto&& element : utils::match(IterateDirection::Reverse{}, std::forward<Fns>(fns)...)) {
-					fn(element);
-				}
+                iterate(utils::match(IterateDirection::Forward{}, std::forward<Fns>(fns)...));
+			} else {
+                iterate(utils::match(IterateDirection::Reverse{}, std::forward<Fns>(fns)...));
 			}
 
-			return {};
+			return makeApplied();
 		}
 
 	};
-
-
 	
 }
