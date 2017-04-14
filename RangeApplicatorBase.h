@@ -55,6 +55,55 @@ namespace utils {
 			}
 		}
 
+		template<class Element, class ...Elements>
+		void iterate_sequence_forward(Element&& element, Elements&&... elements) const {
+			const auto r = fn(std::forward<Element>(element));
+			if (r == FlowControl::Break) {
+				return;
+			} else {
+				iterate_sequence_forward(std::forward<Elements>(elements)...);
+			}
+		}
+        template<class Element>
+        void iterate_sequence_forward(Element&& element) const {
+            fn(std::forward<Element>(element));
+        }
+
+
+
+        template<class Tup, std::size_t... I>
+        void iterate_sequence_reverse(Tup&& t, std::index_sequence<I...>) const {
+            iterate_sequence_forward(
+                std::get<sizeof...(I) -1 - I>( std::forward<Tup>(t) )...
+            );
+        }
+        template<class ...Elements>
+        void iterate_sequence_reverse(Elements&&... elements) const {
+            iterate_sequence_reverse(
+                std::forward_as_tuple(std::forward<Elements>(elements)...),
+                std::index_sequence_for<Elements...>{}
+            );
+        }
+
+
+        /*template<class Element, class ...Elements>
+        void iterate_sequence_reverse(Element&& element, Elements&&... elements) const {
+            iterate_sequence_reverse(std::forward<Elements>(elements)...);
+
+            const auto r = fn(std::forward<Element>(element));
+            if (r == FlowControl::Break) {
+                return;
+            } else {
+                iterate_sequence_reverse(std::forward<Elements>(elements)...);
+            }
+        }
+        template<class Element>
+        void iterate_sequence_reverse(Element&& element) const {
+            fn(std::forward<Element>(element));
+        }*/
+
+
+
 		template<class Fn, class = std::enable_if_t< !std::is_same< std::decay_t<Fn>,  Self>::value > >
 		RangeApplicatorBase(Fn&& fn)
 			: fn(makeFn(std::forward<Fn>(fn))){};

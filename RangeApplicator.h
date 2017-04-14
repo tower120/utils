@@ -24,8 +24,9 @@ utils::RangeApplicator<int>::Applied iterate(const utils::RangeApplicator<int>& 
 		}
 	);
 
+ 	return applicator.apply_empty();
+    return applicator.apply_sequence(1,2,3,4,5);
 	return applicator.apply_range(list);
-
 	return applicator.apply_range(list, view::reverse(list) );
 }
 
@@ -45,9 +46,15 @@ iterate({ utils::IterateDirection::Reverse(), [](int i) {
 namespace utils {
 
 	namespace IterateDirection {
-		struct Forward {} forward;
-		struct Reverse {} reverse;
+		struct Forward {};
+		const static Forward forward{};
+		struct Reverse {};
+		const static Reverse reverse{};
 	}
+
+	/*IterateDirection::Forward IterateDirection::forward = Forward{};
+	IterateDirection::Reverse IterateDirection::reverse = Reverse{};*/
+
 
 	template<class T>
 	class RangeApplicator : public RangeApplicatorBase<T>
@@ -58,6 +65,8 @@ namespace utils {
 
         using Base::fn;
         using Base::iterate;
+        using Base::iterate_sequence_forward;
+        using Base::iterate_sequence_reverse;
 	public:
 
 		template<class Fn, class = std::enable_if_t< !std::is_same< std::decay_t<Fn>,  Self>::value > >
@@ -74,6 +83,20 @@ namespace utils {
 			: Base(std::forward<Fn>(fn))
 			, reverse(false) {}
 
+
+        Applied apply_empty() const{
+            return makeApplied();
+        }
+
+        template<class ...Elements>
+		Applied apply_sequence(Elements&&... elements) const {
+            if (!reverse) {
+                iterate_sequence_forward(std::forward<Elements>(elements)...);
+            } else {
+                iterate_sequence_reverse(std::forward<Elements>(elements)...);
+            }
+            return makeApplied();
+		}
 
 		template<class Range, class RangeRev>
 		Applied apply_range(Range&& range, RangeRev&& renge_rev) const {
